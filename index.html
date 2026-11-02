@@ -480,6 +480,10 @@ footer p { margin: 0; }
             <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             arXiv
           </a>
+          <a class="btn ghost" href="https://huggingface.co/papers/2610.42141">
+            <span style="font-size:16px;line-height:1">🤗</span>
+            Hugging Face
+          </a>
           <a class="btn ghost" href="https://github.com/roboarchitect-ai/RoboArchitect">
             <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
             Code
@@ -563,7 +567,7 @@ footer p { margin: 0; }
     <div class="abstract-grid">
       <div class="abstract-text">
         <h2>Abstract</h2>
-        <p>Recent work shows that a frozen robot policy performs far better inside an agent harness, where control code decides when to query the policy, call auxiliary models, or command the arm directly. Yet these harnesses are still <strong>built by hand</strong> for each new robot and benchmark. <a href="#method"><strong>RoboArchitect automates their design</strong></a>: a coding model observes the robot&rsquo;s rollouts, diagnoses failures, and iteratively refines the harness around the frozen policy, without updating any weights. On <a href="#evaluation">held-out episodes</a>, average success rises <a href="#results">from 9.7% to 43.3% on unseen scenes</a> (4.5&times;) and <a href="#results">from 12.7% to 40.2% on unseen tasks</a> (3.2&times;). The gains are largest where the benchmark is far from the policy&rsquo;s training data: around a general-purpose policy, the evolved agent often <a href="#results">outperforms even the same policy finetuned on the benchmark</a>. RoboArchitect automatically designs <a href="#routines">diverse control routines</a>, such as lifting a jammed arm clear, and a <a href="#memory">persistent memory</a> that carries experience across episodes, such as which grasp heights worked. Inside the evolved agents, <strong>the VLA policy and code-as-policy work together dynamically</strong>: the policy keeps the motions it executes well, and the code takes over where the policy fails. RoboArchitect also evolves a single <a href="#unified">unified harness that works across robot platforms</a>, from the Franka arm to the WidowX and the Google robot. These results suggest that <strong>substantial headroom in robotic manipulation lies in the agent harness, and that its design can be automated and optimized without weight updates</strong>.</p>
+        <p>Recent work shows that a frozen robot policy performs far better inside an agent harness, where control code decides when to query the policy, call auxiliary models, or command the arm directly. Yet these harnesses are still built by hand for each new robot and benchmark. <a href="#method"><strong>RoboArchitect automates their design</strong></a>: a coding model observes the robot&rsquo;s rollouts, diagnoses failures, and iteratively refines the harness around the frozen policy, without updating any weights. On <a href="#evaluation">held-out episodes</a>, average success rises <a href="#results">from 9.7% to 43.3% on unseen scenes</a> (4.5&times;) and <a href="#results">from 12.7% to 40.2% on unseen tasks</a> (3.2&times;). The gains are largest where the benchmark is far from the policy&rsquo;s training data: around a general-purpose policy, the evolved agent often <a href="#results">outperforms even the same policy finetuned on the benchmark</a>. RoboArchitect automatically designs <a href="#routines">diverse control routines</a>, such as lifting a jammed arm clear, and a <a href="#memory">persistent memory</a> that carries experience across episodes, such as which grasp heights worked. Inside the evolved agents, <strong>the VLA policy and code-as-policy work together dynamically</strong>: the policy keeps the motions it executes well, and the code takes over where the policy fails. RoboArchitect also evolves a single <a href="#unified">unified harness that works across robot platforms</a>, from the Franka arm to the WidowX and the Google robot. These results suggest that <strong>substantial headroom in robotic manipulation lies in the agent harness, and that its design can be automated and optimized without weight updates</strong>.</p>
       </div>
       <figure class="abstract-fig">
         <div class="plate"><img src="assets/figs/teaser_plot.png" width="990" height="918" alt="Held-out success of each policy alone and inside its evolved agent, under unseen scenes and unseen tasks, with the finetuned versions of X-VLA marked." loading="lazy"></div>
@@ -1014,11 +1018,14 @@ footer p { margin: 0; }
   <div class="wrap">
     <h2>Citation</h2>
     <div class="cite">
-<pre id="bibtex"><code>@article{wu2026roboarchitect,
-  title   = {RoboArchitect: Automating the Design of Robotic Agents with Persistent Memory},
-  author  = {Wu, Shengguang and Huang, Suning and Ho, Cherie and Doshi, Ria and Zhu, Hao and Yeung-Levy, Serena},
-  journal = {arXiv preprint arXiv:2610.42141},
-  year    = {2026}
+<pre id="bibtex"><code>@misc{wu2026roboarchitect,
+      title={RoboArchitect: Automating the Design of Robotic Agents with Persistent Memory}, 
+      author={Shengguang Wu and Suning Huang and Cherie Ho and Ria Doshi and Hao Zhu and Serena Yeung-Levy},
+      year={2026},
+      eprint={2610.42141},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO},
+      url={https://arxiv.org/abs/2610.42141}, 
 }</code></pre>
       <button type="button" class="copy" id="copy-bibtex">Copy</button>
     </div>
