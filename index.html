@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RoboArchitect</title>
+<meta name="description" content="RoboArchitect uses a coding model to evolve the agent around a frozen robot policy from its own rollouts, raising success on held-out scenes and tasks without updating any weights.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="RoboArchitect: Automating the Design of Robotic Agents with Persistent Memory">
+<meta property="og:description" content="A coding model iteratively redesigns the agent around a frozen robot policy. Average held-out success rises from 9.7% to 43.3% on unseen scenes and from 12.7% to 40.2% on unseen tasks, with no weight updates.">
+<meta property="og:image" content="https://roboarchitect-ai.github.io/assets/figs/teaser_plot.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='8' cy='16' r='5' fill='white' stroke='%238a867e' stroke-width='3'/%3E%3Cpath d='M13 16h9' stroke='%231b7f5a' stroke-width='3'/%3E%3Ccircle cx='25' cy='16' r='6' fill='%231b7f5a'/%3E%3C/svg%3E">
+<link rel="preload" href="assets/fonts/Newsreader-normal-200_800.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face { font-family: "Newsreader"; src: url("assets/fonts/Newsreader-normal-200_800.woff2") format("woff2"); font-weight: 200 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Newsreader"; src: url("assets/fonts/Newsreader-italic-200_800.woff2") format("woff2"); font-weight: 200 800; font-style: italic; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-normal-100_800.woff2") format("woff2"); font-weight: 100 800; font-style: normal; font-display: swap; }
+
+:root {
+  --bg: #f4f6f5;
+  --surface: #ffffff;
+  --ink: #16201b;
+  --muted: #56625c;
+  --rule: #d6ddd9;
+  --before: #858178;
+  --after: #1b7f5a;
+  --on-after: #ffffff;
+  --after-soft: #e2f0e9;
+  --mark: #d1e9dd;
+  --stanford: #8c1515;
+  --plate: #ffffff;
+  --code-bg: #e9eeeb;
+  --scrim: rgba(22, 32, 27, 0.72);
+  --b-libero: #2f6fb5;
+  --b-cerebra: #7a4fa3;
+  --b-vlab: #c2622a;
+  --b-widowx: #17868a;
+  --b-google: #9a7b1f;
+  --b-casa: #2e7d4f;
+  --d-swap: #a8781f;
+  --d-cross: #c2622a;
+  --d-off: #a03123;
+  --ref: #6e6a63;
+  --loss: #b3402f;
+  --font: "Newsreader", Georgia, "Times New Roman", serif;
+  --font-code: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --wide: 72rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1412;
+    --surface: #161d1a;
+    --ink: #e1e8e4;
+    --muted: #9ba7a0;
+    --rule: #2b3531;
+    --before: #aaa69d;
+    --after: #55c597;
+    --on-after: #0f1412;
+    --after-soft: #17352a;
+    --mark: #21503e;
+    --stanford: #e5737b;
+    --plate: #ffffff;
+    --code-bg: #1d2622;
+    --scrim: rgba(15, 20, 18, 0.78);
+    --b-libero: #7eaae2;
+    --b-cerebra: #b893da;
+    --b-vlab: #e8935f;
+    --b-widowx: #52c2c5;
+    --b-google: #d4b257;
+    --b-casa: #67bf8b;
+    --d-swap: #d8ad57;
+    --d-cross: #e8935f;
+    --d-off: #ee7f6f;
+    --ref: #aaa59c;
+    --loss: #ee7f6f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1412;
+  --surface: #161d1a;
+  --ink: #e1e8e4;
+  --muted: #9ba7a0;
+  --rule: #2b3531;
+  --before: #aaa69d;
+  --after: #55c597;
+  --on-after: #0f1412;
+  --after-soft: #17352a;
+  --mark: #21503e;
+  --stanford: #e5737b;
+  --plate: #ffffff;
+  --code-bg: #1d2622;
+  --scrim: rgba(15, 20, 18, 0.78);
+  --b-libero: #7eaae2;
+  --b-cerebra: #b893da;
+  --b-vlab: #e8935f;
+  --b-widowx: #52c2c5;
+  --b-google: #d4b257;
+  --b-casa: #67bf8b;
+  --d-swap: #d8ad57;
+  --d-cross: #e8935f;
+  --d-off: #ee7f6f;
+  --ref: #aaa59c;
+  --loss: #ee7f6f;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  font-optical-sizing: auto;
+}
+button { font-family: inherit; }
+img, video { max-width: 100%; }
+a { color: inherit; text-decoration-color: var(--after); text-decoration-thickness: 1.5px; text-underline-offset: 0.18em; }
+a:hover { color: var(--after); }
+:focus-visible { outline: 2.5px solid var(--after); outline-offset: 3px; border-radius: 2px; }
+[hidden] { display: none !important; }
+
+.skip { position: absolute; left: -999px; top: 0; background: var(--ink); color: var(--bg); padding: 0.5rem 0.8rem; z-index: 5; }
+.skip:focus { left: max(16px, env(safe-area-inset-left, 0px)); top: calc(env(safe-area-inset-top, 0px) + 8px); }
+
+.wrap {
+  max-width: var(--wide);
+  margin-inline: auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+h1, h2, h3 { margin: 0; }
+h2 { font-size: 1.6rem; font-weight: 700; line-height: 1.2; }
+h3 { font-size: 1.06rem; font-weight: 650; line-height: 1.3; }
+
+.hero { padding-block: clamp(2.2rem, 5vw, 3.2rem) 0.4rem; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) 24rem; gap: clamp(1.5rem, 3vw, 2.5rem); align-items: center; }
+.hero h1 { font-size: clamp(2.3rem, 4.2vw, 3.1rem); font-weight: 700; line-height: 1.05; letter-spacing: -0.01em; color: var(--after); }
+.subtitle { font-size: clamp(1.05rem, calc(1.8vw + 0.1rem), 1.54rem); font-weight: 500; line-height: 1.3; margin: 0.4rem 0 0; }
+.authors { margin: 1rem 0 0; font-size: clamp(1rem, 1.5vw, 1.12rem); line-height: 1.5; }
+.authors a { color: var(--muted); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.authors a:hover { color: var(--after); text-decoration: underline; }
+.affil { margin: 0.15rem 0 0; font-size: clamp(0.95rem, calc(1.62vw + 0.09rem), 1.38rem); font-weight: 650; color: var(--stanford); }
+.lede { margin: 1rem 0 0; font-size: 1.22rem; line-height: 1.5; }
+.btns { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.2rem; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--ink);
+  color: var(--bg);
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  font-size: 1.06rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.btn:hover { background: var(--after); border-color: var(--after); color: var(--on-after); transform: translateY(-1px); }
+.btn.ghost { background: var(--surface); color: var(--ink); border-color: var(--rule); }
+.btn.ghost:hover { border-color: var(--after); color: var(--after); background: var(--surface); }
+.btn svg { width: 16px; height: 16px; flex: none; }
+@media (prefers-reduced-motion: reduce) { .btn, .btn:hover { transition: none; transform: none; } }
+
+.scores { padding: 1rem 1.25rem 0.9rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; display: grid; gap: 0.8rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.25rem 1.1rem; font-size: 0.92rem; line-height: 1.4; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+.mark { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 50%; flex: none; }
+.mark.before { border: 2.5px solid var(--before); background: var(--surface); }
+.mark.after { background: var(--after); }
+.mark.open { border: 2.5px solid var(--ink); background: var(--surface); }
+.mark.filled { background: var(--ink); }
+.mark.tick { width: 0.3rem; height: 1rem; border-radius: 0; background: var(--ref); }
+.score-label { font-weight: 650; font-size: 1.04rem; display: flex; justify-content: space-between; gap: 1rem; }
+.score-label small { font-weight: 650; font-size: 0.92rem; color: var(--after); align-self: center; }
+.dumbbell { position: relative; height: 3.2rem; }
+.dumbbell .track { position: absolute; left: 0; right: 0; top: 1.9rem; height: 1px; background: var(--rule); }
+.dumbbell .seg { position: absolute; top: calc(1.9rem - 1px); height: 3px; left: calc(var(--from) * 2%); width: calc((var(--to) - var(--from)) * 2%); background: var(--after); }
+.dumbbell .dot { position: absolute; top: 1.9rem; width: 0.9rem; height: 0.9rem; border-radius: 50%; transform: translate(-50%, -50%); }
+.dumbbell .dot.before { left: calc(var(--from) * 2%); border: 2.5px solid var(--before); background: var(--surface); }
+.dumbbell .dot.after { left: calc(var(--to) * 2%); background: var(--after); }
+.dumbbell .value { position: absolute; transform: translateX(-50%); font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+.dumbbell .value.before { left: calc(var(--from) * 2%); top: 0.4rem; color: var(--before); font-size: 1rem; font-weight: 600; }
+.dumbbell .value.after { left: calc(var(--to) * 2%); top: 0.15rem; color: var(--after); font-size: 1.3rem; font-weight: 700; }
+.dumbbell .axis { position: absolute; top: 2.35rem; font-size: 0.8rem; color: var(--muted); }
+.dumbbell .axis.left { left: 0; }
+.dumbbell .axis.right { right: 0; }
+.score-note { margin: 0; font-size: 0.95rem; color: var(--muted); line-height: 1.45; }
+
+.examples, .gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 1.3rem; align-items: start; }
+.examples { row-gap: 1.6rem; margin-top: clamp(2rem, 4vw, 2.6rem); }
+.gallery { row-gap: 2rem; }
+.ex figcaption { margin-top: 0.5rem; display: grid; gap: 0.1rem; }
+.ex .point { font-weight: 650; font-size: 1.02rem; line-height: 1.3; color: var(--ink); }
+.ex .where { font-size: 0.9rem; color: var(--muted); }
+.kind { font-size: 0.78rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--after); }
+.kind.memory { color: var(--b-cerebra); }
+
+.toc { display: flex; flex-wrap: wrap; gap: 0.3rem 1.4rem; margin-top: 2.4rem; padding-block: 0.9rem; border-top: 1px solid var(--rule); font-size: 0.98rem; }
+.toc a { text-decoration: none; color: var(--muted); }
+.toc a:hover { color: var(--after); }
+
+.plate { background: var(--plate); border-radius: 6px; padding: clamp(5px, 0.8vw, 8px); border: 1px solid var(--rule); }
+.plate img, .plate video { display: block; width: 100%; height: auto; }
+.player { position: relative; }
+.player video { cursor: pointer; }
+.toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--scrim);
+  color: #ffffff;
+  cursor: pointer;
+  padding: 0;
+}
+.toggle svg { width: 0.9rem; height: 0.9rem; }
+.toggle .icon-pause { display: none; }
+.player.is-playing .toggle .icon-play { display: none; }
+.player.is-playing .toggle .icon-pause { display: block; }
+figure { margin: 0; }
+figcaption { margin-top: 0.7rem; font-size: 0.98rem; line-height: 1.5; color: var(--muted); }
+figcaption strong { color: var(--ink); font-weight: 650; }
+
+section { padding-block: clamp(2.4rem, 5vw, 3.6rem); border-top: 1px solid var(--rule); }
+.section-head { display: grid; gap: 0.75rem; margin-bottom: 1.6rem; }
+.section-head p { margin: 0; }
+
+.abstract-grid { display: grid; grid-template-columns: minmax(0, 1fr) 24rem; gap: clamp(1.5rem, 3vw, 2.5rem); align-items: start; }
+.abstract-text h2 { margin-bottom: 0.75rem; }
+.abstract-text p { margin: 0; }
+.abstract-fig .legend { margin-top: 0.7rem; }
+.abstract-fig figcaption { margin-top: 0.5rem; }
+
+.chev {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--after);
+  transition: transform 0.2s;
+}
+.chev::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 2px solid var(--on-after);
+  border-bottom: 2px solid var(--on-after);
+  transform: translateY(-0.09rem) rotate(45deg);
+}
+@media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
+.block-label { font-weight: 650; font-size: 1.06rem; line-height: 1.3; color: var(--ink); margin: 1.9rem 0 0.7rem; }
+.folds { display: grid; gap: 0.7rem; align-items: start; }
+.folds.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.folds.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fold { background: var(--surface); border: 1.5px solid var(--rule); border-radius: 8px; min-width: 0; }
+.fold:hover, .fold[open] { border-color: var(--after); }
+.fold summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.7rem 0.75rem 0.7rem 0.95rem;
+  font-weight: 400;
+  font-size: 1.02rem;
+  line-height: 1.3;
+}
+.fold summary::-webkit-details-marker { display: none; }
+.fold summary .n { font-size: 1rem; font-weight: 700; color: var(--after); flex: none; }
+.fold summary .t { flex: 1; }
+.fold[open] .chev { transform: rotate(180deg); }
+.fold p { margin: 0; padding: 0 0.95rem 0.95rem; font-size: 1rem; line-height: 1.5; }
+.fold ul { margin: 0; padding: 0 0.95rem 0.95rem 2.1rem; display: grid; gap: 0.2rem; font-size: 1rem; line-height: 1.45; }
+.fold li b { font-weight: 650; }
+.block-label.runin { font-weight: 400; margin-top: 2.2rem; }
+.block-label.runin strong { font-weight: 700; }
+
+.reveal { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; }
+.card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.35rem;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--rule);
+  border-radius: 8px;
+  padding: 0.95rem 1.05rem 0.85rem;
+  cursor: pointer;
+  min-width: 0;
+}
+.card:hover { border-color: var(--after); }
+.card[aria-expanded="true"] { border-color: var(--after); box-shadow: inset 0 3px 0 var(--after); }
+.card .card-title { font-weight: 700; font-size: 1.08rem; }
+.card .card-text { font-size: 1rem; line-height: 1.45; color: var(--muted); }
+.more { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.98rem; font-weight: 650; color: var(--after); }
+.card .more { margin-top: 0.3rem; }
+.card .more::before { content: "Show examples"; }
+.card[aria-expanded="true"] .more::before { content: "Hide examples"; }
+.card[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.pills { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.pills .block-label { margin: 0 0.4rem 0 0; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--rule);
+  border-radius: 999px;
+  padding: 0.28rem 0.35rem 0.28rem 0.95rem;
+  cursor: pointer;
+}
+.pill .chev { width: 1.3rem; height: 1.3rem; }
+.pill:hover { border-color: var(--after); color: var(--after); }
+.pill[aria-expanded="true"] { border-color: var(--after); background: var(--after-soft); color: var(--ink); }
+.pill[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.panel { margin-top: 1.1rem; }
+.panel figure { max-width: 48rem; }
+.panel figure.narrow { max-width: 42rem; }
+.panel figure.wide { max-width: none; }
+
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.98rem; font-variant-numeric: tabular-nums lining-nums; }
+th, td { padding: 0.4rem 0.6rem; text-align: right; white-space: nowrap; }
+th { font-weight: 600; color: var(--muted); font-size: 0.9rem; }
+thead tr:first-child th { color: var(--ink); font-size: 0.96rem; padding-top: 0.75rem; }
+thead tr:last-child th { border-bottom: 1px solid var(--rule); }
+th.group { text-align: center; border-bottom: 1px solid var(--rule); }
+.l { text-align: left; }
+td.split, th.split { border-left: 1px solid var(--rule); }
+tbody tr + tr td { border-top: 1px solid color-mix(in srgb, var(--rule) 55%, transparent); }
+tr.ref td { color: var(--ref); font-style: italic; }
+tr.mean td { border-top: 1px solid var(--rule); }
+tr.mean td.l { font-style: italic; }
+tr.start td { border-top: 1px solid var(--rule); }
+td.best { font-weight: 700; }
+.hl { color: var(--ink); background: var(--mark); border-radius: 2px; }
+#results td, #results th { transition: background 0.15s; }
+#results:has(.hl[data-hl="mean"]:is(:hover, :focus-visible)) tr.mean td,
+#results:has(.hl[data-hl="ft"]:is(:hover, :focus-visible)) :is(tr.ref, tr.xvla) td,
+#results:has(.hl[data-hl="shot"]:is(:hover, :focus-visible)) :is(.os, .best, th.it) { background: var(--mark); }
+@media (prefers-reduced-motion: reduce) { #results td, #results th { transition: none; } }
+td.gain { color: var(--after); font-weight: 600; }
+td.loss { color: var(--loss); font-weight: 600; }
+.bench { font-weight: 700; }
+.bench.libero { color: var(--b-libero); }
+.bench.cerebra { color: var(--b-cerebra); }
+.bench.vlab { color: var(--b-vlab); }
+.bench.widowx { color: var(--b-widowx); }
+.bench.google { color: var(--b-google); }
+.bench.casa { color: var(--b-casa); }
+.src { font-size: 0.92rem; }
+.src.swap { color: var(--d-swap); }
+.src.cross { color: var(--d-cross); }
+.src.off { color: var(--d-off); }
+.key { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; margin-top: 0.7rem; font-size: 0.94rem; color: var(--muted); }
+.key b { color: var(--ink); font-weight: 650; }
+.key.colors span::before { content: ""; display: inline-block; width: 0.65rem; height: 0.65rem; border-radius: 2px; margin-right: 0.35rem; vertical-align: -0.02rem; background: currentColor; }
+.key .k-in { color: var(--ink); }
+.key .k-swap { color: var(--d-swap); }
+.key .k-cross { color: var(--d-cross); }
+.key .k-off { color: var(--d-off); }
+.table-block + .pills-block { margin-top: 2rem; }
+.unified-table td.src { white-space: normal; }
+.table-block + .block-label, .table-block + .gallery { margin-top: 2.4rem; }
+
+.clip { display: flex; flex-direction: column; gap: 0.55rem; min-width: 0; }
+.clip-text summary { list-style: none; cursor: pointer; display: grid; gap: 0.2rem; justify-items: start; }
+.clip-text summary::-webkit-details-marker { display: none; }
+.clip-text summary:hover h3 { color: var(--after); }
+.clip-head { display: flex; align-items: baseline; gap: 0.45rem; }
+.clip-head .tag { font-size: 1rem; font-weight: 650; color: var(--after); }
+.clip-text .more { margin-top: 0.25rem; }
+.clip-text .more::before { content: "Show details"; }
+.clip-text[open] .more::before { content: "Hide details"; }
+.clip-text[open] .chev { transform: rotate(180deg); }
+.clip-body { display: grid; gap: 0.3rem; margin-top: 0.55rem; }
+.setting { font-size: 0.9rem; color: var(--muted); }
+.instruction { font-style: italic; font-size: 0.98rem; line-height: 1.45; margin: 0; }
+.clip-body p { margin: 0; font-size: 0.98rem; line-height: 1.5; }
+.clip-body strong { font-weight: 650; color: var(--ink); }
+.clip, #evaluation { scroll-margin-top: 1rem; }
+
+pre {
+  margin: 0;
+  font-family: var(--font-code);
+  font-size: 0.86rem;
+  line-height: 1.6;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+}
+code { font-family: var(--font-code); font-size: 0.88em; }
+
+#cite h2 { margin-bottom: 1rem; }
+.cite { position: relative; }
+.copy {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.25rem 0.65rem;
+  cursor: pointer;
+}
+.copy:hover { border-color: var(--ink); }
+
+footer { border-top: 1px solid var(--rule); padding-block: 1.8rem 2.6rem; font-size: 0.96rem; color: var(--muted); text-align: center; }
+footer p { margin: 0; }
+
+@media (max-width: 1100px) {
+  .hero-grid { grid-template-columns: minmax(0, 1fr); }
+  .scores { max-width: 24rem; }
+  .abstract-grid { grid-template-columns: minmax(0, 1fr); }
+  .abstract-fig { max-width: 30rem; }
+}
+@media (max-width: 1000px) {
+  .folds.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .examples, .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .reveal, .folds.two { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .folds.four { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .examples, .gallery { grid-template-columns: minmax(0, 1fr); }
+  body { font-size: 1.02rem; }
+  .toggle { width: 1.8rem; height: 1.8rem; right: 5px; bottom: 5px; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <h1>RoboArchitect</h1>
+        <p class="subtitle">Automating the Design of Robotic Agents with Persistent Memory</p>
+        <p class="authors"><a href="https://danielwusg.github.io/">Shengguang Wu</a>, <a href="https://suninghuang19.github.io/">Suning Huang</a>, <a href="https://cherieho.com/">Cherie Ho</a>, <a href="https://riadoshi.github.io/">Ria Doshi</a>, <a href="https://hao.computer/">Hao Zhu</a>, <a href="https://ai.stanford.edu/~syyeung/">Serena Yeung-Levy</a></p>
+        <p class="affil">Stanford University</p>
+        <p class="lede">RoboArchitect studies the failures of a frozen robot policy and automatically designs and continually improves a robotic agent around it, without updating any model weights.</p>
+        <div class="btns">
+          <a class="btn" href="https://arxiv.org/pdf/2610.42141">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M6 2h9l5 5v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm8 1.5V8h4.5L14 3.5z"/></svg>
+            Paper
+          </a>
+          <a class="btn ghost" href="https://arxiv.org/abs/2610.42141">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            arXiv
+          </a>
+          <a class="btn ghost" href="https://github.com/roboarchitect-ai/RoboArchitect">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+            Code
+          </a>
+          <a class="btn ghost" href="#cite">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M5 6h5v5H7.6c0 1.9.9 3.1 2.4 3.6V17c-3.2-.5-5-2.9-5-6.6V6zm9 0h5v5h-2.4c0 1.9.9 3.1 2.4 3.6V17c-3.2-.5-5-2.9-5-6.6V6z"/></svg>
+            BibTeX
+          </a>
+        </div>
+      </div>
+      <div class="scores" role="group" aria-label="Average held-out success of the VLA policy and of the evolved agent">
+        <div class="legend">
+          <span><i class="mark before"></i>VLA policy</span>
+          <span><i class="mark after"></i>evolved agent around the same frozen policy</span>
+        </div>
+        <div>
+          <div class="score-label">Unseen scenes <small>4.5&times;</small></div>
+          <div class="dumbbell" style="--from: 9.7; --to: 43.3;" role="img" aria-label="Unseen scenes: 9.7 percent with the VLA policy, 43.3 percent with the evolved agent">
+            <div class="track"></div><div class="seg"></div>
+            <div class="dot before"></div><div class="dot after"></div>
+            <span class="value before">9.7%</span><span class="value after">43.3%</span>
+            <span class="axis left">0%</span><span class="axis right">50%</span>
+          </div>
+        </div>
+        <div>
+          <div class="score-label">Unseen tasks <small>3.2&times;</small></div>
+          <div class="dumbbell" style="--from: 12.7; --to: 40.2;" role="img" aria-label="Unseen tasks: 12.7 percent with the VLA policy, 40.2 percent with the evolved agent">
+            <div class="track"></div><div class="seg"></div>
+            <div class="dot before"></div><div class="dot after"></div>
+            <span class="value before">12.7%</span><span class="value after">40.2%</span>
+            <span class="axis left">0%</span><span class="axis right">50%</span>
+          </div>
+        </div>
+        <p class="score-note">Average success on held-out episodes, over diverse policy and benchmark setups.</p>
+      </div>
+    </div>
+
+    <div class="examples">
+      <figure class="ex">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_shelf.jpg" aria-label="Before and after: reaching a book from the side"><source src="assets/videos/routine_shelf.mp4" type="video/mp4"></video></div></div>
+        <figcaption><span class="kind">Control routine</span><span class="point">Reaches in from the side under a shelf board</span><span class="where">X-VLA on VLABench</span></figcaption>
+      </figure>
+      <figure class="ex">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_named.jpg" aria-label="Before and after: going to the moka pot"><source src="assets/videos/routine_named.mp4" type="video/mp4"></video></div></div>
+        <figcaption><span class="kind">Control routine</span><span class="point">Reaches the named object, not a memorized place</span><span class="where">RLinf-&pi;<sub>0.5</sub> on LIBERO-Pro-10</span></figcaption>
+      </figure>
+      <figure class="ex">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_handles.jpg" aria-label="Before and after: opening a drawer by its handle"><source src="assets/videos/routine_handles.mp4" type="video/mp4"></video></div></div>
+        <figcaption><span class="kind">Control routine</span><span class="point">Drives the arm to add a missing motion, pulling a drawer open by its handle</span><span class="where">SmolVLA on RoboCerebra</span></figcaption>
+      </figure>
+      <figure class="ex">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_door.jpg" aria-label="Before and after: closing the toaster oven door"><source src="assets/videos/routine_door.mp4" type="video/mp4"></video></div></div>
+        <figcaption><span class="kind">Control routine</span><span class="point">Rescales the contact force, pushing until the door latches shut</span><span class="where">RLDX-1 on RoboCasa-365</span></figcaption>
+      </figure>
+      <figure class="ex">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/memory_grip_style.jpg" aria-label="Grip styles stored in memory, on a mug and a pudding box"><source src="assets/videos/memory_grip_style.mp4" type="video/mp4"></video></div></div>
+        <figcaption><span class="kind memory">Persistent memory</span><span class="point">Remembers which grip worked for each object</span><span class="where">OpenVLA-7B on LIBERO-Pro-10</span></figcaption>
+      </figure>
+      <figure class="ex">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/memory_calibration_pair.jpg" aria-label="Finger-direction calibration stored in memory, on the Google robot"><source src="assets/videos/memory_calibration_pair.mp4" type="video/mp4"></video></div></div>
+        <figcaption><span class="kind memory">Persistent memory</span><span class="point">Remembers which way the fingers close, and turns the wrist to match</span><span class="where">X-VLA (general) with the unified harness across robots on SimplerEnv Google</span></figcaption>
+      </figure>
+    </div>
+
+    <nav class="toc" aria-label="Sections">
+      <a href="#abstract">Abstract</a>
+      <a href="#method">RoboArchitect</a>
+      <a href="#results">Results</a>
+      <a href="#routines">Auto-evolved control routines</a>
+      <a href="#memory">Auto-evolved persistent memory</a>
+      <a href="#unified">Unified harness</a>
+      <a href="#cite">Citation</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<section id="abstract">
+  <div class="wrap">
+    <div class="abstract-grid">
+      <div class="abstract-text">
+        <h2>Abstract</h2>
+        <p>Recent work shows that a frozen robot policy performs far better inside an agent harness, where control code decides when to query the policy, call auxiliary models, or command the arm directly. Yet these harnesses are still <strong>built by hand</strong> for each new robot and benchmark. <a href="#method"><strong>RoboArchitect automates their design</strong></a>: a coding model observes the robot&rsquo;s rollouts, diagnoses failures, and iteratively refines the harness around the frozen policy, without updating any weights. On <a href="#evaluation">held-out episodes</a>, average success rises <a href="#results">from 9.7% to 43.3% on unseen scenes</a> (4.5&times;) and <a href="#results">from 12.7% to 40.2% on unseen tasks</a> (3.2&times;). The gains are largest where the benchmark is far from the policy&rsquo;s training data: around a general-purpose policy, the evolved agent often <a href="#results">outperforms even the same policy finetuned on the benchmark</a>. RoboArchitect automatically designs <a href="#routines">diverse control routines</a>, such as lifting a jammed arm clear, and a <a href="#memory">persistent memory</a> that carries experience across episodes, such as which grasp heights worked. Inside the evolved agents, <strong>the VLA policy and code-as-policy work together dynamically</strong>: the policy keeps the motions it executes well, and the code takes over where the policy fails. RoboArchitect also evolves a single <a href="#unified">unified harness that works across robot platforms</a>, from the Franka arm to the WidowX and the Google robot. These results suggest that <strong>substantial headroom in robotic manipulation lies in the agent harness, and that its design can be automated and optimized without weight updates</strong>.</p>
+      </div>
+      <figure class="abstract-fig">
+        <div class="plate"><img src="assets/figs/teaser_plot.png" width="990" height="918" alt="Held-out success of each policy alone and inside its evolved agent, under unseen scenes and unseen tasks, with the finetuned versions of X-VLA marked." loading="lazy"></div>
+        <div class="legend">
+          <span><i class="mark open"></i>VLA policy</span>
+          <span><i class="mark filled"></i>evolved agent around the same frozen policy</span>
+          <span><i class="mark tick"></i>same policy finetuned on that benchmark</span>
+        </div>
+        <figcaption><strong>Held-out success rises in nearly every setup, often past the same policy finetuned on the benchmark.</strong></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="method">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>RoboArchitect</h2>
+      <p>A coding model iteratively designs and refines an agent harness around a robot policy (VLA). Each refinement is based on actual evidence from observed rollouts. <strong>The new harness may follow the policy, call auxiliary models, command the arm directly, or even design a persistent memory that informs decisions across tasks and scenes</strong>. Over iterations, the harness grows from the VLA policy alone into a fully designed robotic agent with auxiliary tools and persistent memory. The right side of the figure below shows the experiment conditions that test how well the auto-optimized harness generalizes.</p>
+    </div>
+    <figure>
+      <div class="plate"><img src="assets/figs/method.png" width="2200" height="719" alt="Overview: a robot harness, initially a pass-through of the policy, evolves into an agentic program with persistent memory and access to auxiliary models; a coding model reviews rollout trajectories, diagnoses failure patterns and improves the harness iteratively. Right: the three experiment conditions." loading="lazy"></div>
+    </figure>
+
+    <h3 class="block-label">Optimization</h3>
+    <div class="folds four">
+      <details class="fold"><summary><span class="n">1</span><span class="t">Run the agent and record every step</span><span class="chev" aria-hidden="true"></span></summary><p>The agent runs on the training episodes. Every step is recorded: camera frames, the robot&rsquo;s readings, and every model and tool output.</p></details>
+      <details class="fold"><summary><span class="n">2</span><span class="t">A coding model diagnoses failures and revises the harness</span><span class="chev" aria-hidden="true"></span></summary><p>A coding model reads the recordings, diagnoses the failures, and designs a revised harness.</p></details>
+      <details class="fold"><summary><span class="n">3</span><span class="t">Keep only strictly improving revisions</span><span class="chev" aria-hidden="true"></span></summary><p>The revised harness runs on the same training episodes and replaces the current one only if it scores higher.</p></details>
+      <details class="fold"><summary><span class="n">4</span><span class="t">Evaluate the final agent on held-out episodes</span><span class="chev" aria-hidden="true"></span></summary><p>After N iterations, the final harness is evaluated on held-out episodes that were never used to optimize it.</p></details>
+    </div>
+
+    <h3 class="block-label">Extra components</h3>
+    <div class="folds two">
+      <details class="fold"><summary><span class="t">Auxiliary vision, language and grasp models</span><span class="chev" aria-hidden="true"></span></summary><ul>
+        <li><b>Language:</b> Qwen3-30B-A3B-Instruct</li>
+        <li><b>Vision-language:</b> Molmo2-8B or Qwen3-VL-8B-Instruct</li>
+        <li><b>Object detection:</b> Grounding-DINO</li>
+        <li><b>Segmentation:</b> SAM&nbsp;3</li>
+        <li><b>Pointing:</b> Molmo2-8B</li>
+        <li><b>Grasp poses:</b> GraspGen</li>
+        <li><b>Geometry helpers:</b> turn a pixel and its depth into a 3D point in the robot&rsquo;s frame, and build relative motions</li>
+      </ul></details>
+      <details class="fold"><summary><span class="t"><strong>A persistent memory with no fixed schema</strong></span><span class="chev" aria-hidden="true"></span></summary><p>The harness can keep a memory across episodes. <strong>The coding model designs the memory freely: its entries, their format, and when the agent reads them</strong>. Every evaluation starts with an empty memory.</p></details>
+    </div>
+
+    <h3 class="block-label runin" id="evaluation"><strong>Evaluation:</strong> Every agent is evaluated on held-out episodes that were never used to optimize it</h3>
+    <div class="reveal" data-group="protocols">
+      <button type="button" class="card" aria-expanded="false" aria-controls="panel-scenes">
+        <span class="card-title">Unseen scenes</span>
+        <span class="card-text">The same tasks, with different object arrangements and scene layouts.</span>
+        <span class="more"><span class="chev" aria-hidden="true"></span></span>
+      </button>
+      <button type="button" class="card" aria-expanded="false" aria-controls="panel-tasks">
+        <span class="card-title">Unseen tasks</span>
+        <span class="card-text">Different tasks that need the same underlying skills.</span>
+        <span class="more"><span class="chev" aria-hidden="true"></span></span>
+      </button>
+      <button type="button" class="card" aria-expanded="false" aria-controls="panel-unified">
+        <span class="card-title">Unified harness for many robots</span>
+        <span class="card-text">A unified harness for the Franka arm, the WidowX and the Google robot, evolved on randomly generated scenes and tasks, which differ from the benchmarks&rsquo; standard evaluation episodes.</span>
+        <span class="more"><span class="chev" aria-hidden="true"></span></span>
+      </button>
+    </div>
+    <div class="panel" id="panel-scenes" hidden>
+      <figure class="narrow"><div class="plate"><img src="assets/figs/split_scenes.png" width="1231" height="812" alt="Unseen scenes: on VLABench and RoboCasa-365, the scene configurations of each task are dealt out alternately to the training and held-out episodes." loading="lazy"></div></figure>
+    </div>
+    <div class="panel" id="panel-tasks" hidden>
+      <figure class="narrow"><div class="plate"><img src="assets/figs/split_tasks.png" width="1149" height="775" alt="Unseen tasks: on RoboCasa-365 and LIBERO-Pro-10, the training and held-out episodes contain different tasks that need similar skills." loading="lazy"></div></figure>
+    </div>
+    <div class="panel" id="panel-unified" hidden>
+      <figure class="wide"><div class="plate"><img src="assets/figs/unified_pool.png" width="1984" height="853" alt="The unified harness's training pool of generated episodes from LIBERO-Pro, VLABench, SimplerEnv WidowX and SimplerEnv Google, and its held-out standard benchmark episodes." loading="lazy"></div></figure>
+    </div>
+  </div>
+</section>
+
+<section id="results">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Results</h2>
+      <p>Around the same frozen policies, the evolved agents <a class="hl" data-hl="mean" href="#results-table">raise average held-out success</a> by 4.5&times; on unseen scenes and by 3.2&times; on unseen tasks. They even <a class="hl" data-hl="ft" href="#results-table">lift out-of-domain policies past their finetuned versions</a>: around the general X-VLA, never trained on these benchmarks, the evolved agent outperforms X-VLA finetuned on the benchmark most of the time. Iterative harness refinement also <a class="hl" data-hl="shot" href="#results-table">beats a one-shot agent design</a> on nearly every held-out set.</p>
+    </div>
+
+    <div class="table-block">
+      <div class="table-wrap" id="results-table">
+        <table>
+          <thead>
+            <tr>
+              <th class="l" colspan="3"></th>
+              <th class="group split" colspan="4">Unseen scenes (%)</th>
+              <th class="group split" colspan="4">Unseen tasks (%)</th>
+            </tr>
+            <tr>
+              <th class="l">Benchmark</th><th class="l">Policy</th><th class="l">Trained on</th>
+              <th class="split">VLA policy</th><th class="os">One-shot</th><th class="it">Iterative</th><th>&Delta;</th>
+              <th class="split">VLA policy</th><th class="os">One-shot</th><th class="it">Iterative</th><th>&Delta;</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="l bench libero">LIBERO-Pro-10</td><td class="l">MolmoAct-2</td><td class="l src swap">LIBERO</td><td class="split">10.0</td><td class="os">12.0</td><td class="best">32.0</td><td class="gain">+22.0</td><td class="split">2.5</td><td class="os">2.5</td><td class="best">15.0</td><td class="gain">+12.5</td></tr>
+            <tr><td class="l"></td><td class="l">OpenVLA-7B</td><td class="l src swap">LIBERO-10</td><td class="split">0.0</td><td class="os">2.0</td><td class="best">26.0</td><td class="gain">+26.0</td><td class="split">0.0</td><td class="os">0.0</td><td class="best">22.5</td><td class="gain">+22.5</td></tr>
+            <tr><td class="l"></td><td class="l">&pi;<sub>0.5</sub></td><td class="l src swap">LIBERO</td><td class="split">8.0</td><td class="os">4.0</td><td class="best">24.0</td><td class="gain">+16.0</td><td class="split">0.0</td><td class="os">0.0</td><td class="best">2.5</td><td class="gain">+2.5</td></tr>
+            <tr><td class="l"></td><td class="l">RLinf-&pi;<sub>0.5</sub></td><td class="l src swap">LIBERO-130</td><td class="split">2.0</td><td class="os">2.0</td><td class="best">40.0</td><td class="gain">+38.0</td><td class="split">0.0</td><td class="os">0.0</td><td class="best">10.0</td><td class="gain">+10.0</td></tr>
+            <tr><td class="l"></td><td class="l">SmolVLA</td><td class="l src cross">RoboCerebra</td><td class="split">0.0</td><td class="os">0.0</td><td class="best">38.0</td><td class="gain">+38.0</td><td class="split">0.0</td><td class="os">10.0</td><td class="best">27.5</td><td class="gain">+27.5</td></tr>
+            <tr class="start"><td class="l bench cerebra">RoboCerebra</td><td class="l">&pi;<sub>0.5</sub></td><td class="l src cross">LIBERO</td><td class="split">22.0</td><td class="os">20.0</td><td class="best">55.3</td><td class="gain">+33.3</td><td class="split">24.0</td><td class="os">12.0</td><td class="best">28.0</td><td class="gain">+4.0</td></tr>
+            <tr><td class="l"></td><td class="l">SmolVLA</td><td class="l src">RoboCerebra</td><td class="split">20.0</td><td class="os">34.3</td><td class="best">49.3</td><td class="gain">+29.3</td><td class="split">26.0</td><td class="os">16.0</td><td class="best">80.0</td><td class="gain">+54.0</td></tr>
+            <tr class="start xvla"><td class="l bench vlab">VLABench</td><td class="l">X-VLA</td><td class="l src off">general robot data</td><td class="split">7.3</td><td class="os">32.8</td><td class="best">52.6</td><td class="gain">+45.2</td><td class="split">1.2</td><td class="os">&ndash;</td><td class="best">72.5</td><td class="gain">+71.3</td></tr>
+            <tr class="ref"><td class="l" colspan="3">&#8618; X-VLA finetuned on VLABench</td><td class="split">35.2</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td class="split">32.1</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+            <tr class="start xvla"><td class="l bench widowx">SimplerEnv WidowX</td><td class="l">X-VLA</td><td class="l src off">general robot data</td><td class="split">0.0</td><td class="os">77.1</td><td class="best">87.5</td><td class="gain">+87.5</td><td class="split">0.0</td><td class="os">&ndash;</td><td class="best">66.7</td><td class="gain">+66.7</td></tr>
+            <tr class="ref"><td class="l" colspan="3">&#8618; X-VLA finetuned on WidowX</td><td class="split">70.8</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td class="split">87.5</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+            <tr class="start"><td class="l bench casa">RoboCasa-365</td><td class="l">RLDX-1</td><td class="l src">RoboCasa-365</td><td class="split">27.9</td><td class="os">29.3</td><td class="best">27.8</td><td class="loss">&minus;0.2</td><td class="split">73.5</td><td class="os">76.5</td><td class="best">77.5</td><td class="gain">+4.0</td></tr>
+            <tr class="mean"><td class="l" colspan="3">Mean (all setups)</td><td class="split">9.7</td><td class="os">21.4</td><td class="best">43.3</td><td class="gain">+345%</td><td class="split">12.7</td><td class="os">&ndash;</td><td class="best">40.2</td><td class="gain">+216%</td></tr>
+            <tr class="mean"><td class="l" colspan="3">Mean (cross-benchmark and out-of-domain)</td><td class="split">7.3</td><td class="os">32.5</td><td class="best">58.4</td><td class="gain">+696%</td><td class="split">6.3</td><td class="os">&ndash;</td><td class="best">48.7</td><td class="gain">+671%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="key">
+        <span><b>One-shot</b> the agent after iteration 1</span>
+        <span><b>Iterative</b> after up to 5 iterations</span>
+        <span><b>&Delta;</b> Iterative minus VLA policy (relative gain in the mean rows)</span>
+        <span><b>&#8618;</b> the same policy finetuned on the benchmark</span>
+        <span><b>VLABench</b> numbers are the benchmark&rsquo;s official progress score</span>
+      </div>
+      <div class="key colors" aria-label="Colour key for the Trained on column">
+        <span class="k-in">finetuned on this benchmark</span>
+        <span class="k-swap">same benchmark, object positions swapped</span>
+        <span class="k-cross">a different benchmark</span>
+        <span class="k-off">general robot data only</span>
+      </div>
+    </div>
+
+    <div class="pills-block">
+      <div class="pills" data-group="trajectories">
+        <h3 class="block-label">Full optimization trajectories</h3>
+        <button type="button" class="pill" aria-expanded="false" aria-controls="traj-scenes">Unseen scenes<span class="chev" aria-hidden="true"></span></button>
+        <button type="button" class="pill" aria-expanded="false" aria-controls="traj-tasks">Unseen tasks<span class="chev" aria-hidden="true"></span></button>
+        <button type="button" class="pill" aria-expanded="false" aria-controls="traj-unified">Unified harness<span class="chev" aria-hidden="true"></span></button>
+      </div>
+      <div class="panel" id="traj-scenes" hidden>
+        <figure><div class="plate"><img src="assets/figs/traj_scenes.png" width="1540" height="2506" alt="Training and held-out scores over iterations for every setup under unseen scenes." loading="lazy"></div>
+          <figcaption>Iterative refinement improves the agent steadily: each kept revision raises the training score, and on the held-out episodes the final agent outperforms the VLA policy in every setup but RLDX-1 on RoboCasa-365.</figcaption></figure>
+      </div>
+      <div class="panel" id="traj-tasks" hidden>
+        <figure><div class="plate"><img src="assets/figs/traj_tasks.png" width="1540" height="2506" alt="Training and held-out scores over iterations for every setup under unseen tasks." loading="lazy"></div>
+          <figcaption>Iterative refinement improves the agent steadily: each kept revision raises the training score, and on the held-out episodes the final agent outperforms the VLA policy in every setup.</figcaption></figure>
+      </div>
+      <div class="panel" id="traj-unified" hidden>
+        <figure><div class="plate"><img src="assets/figs/traj_unified.png" width="1540" height="2506" alt="Training-pool and held-out scores over iterations for the unified harness around the general X-VLA and around the X-VLA specialists." loading="lazy"></div>
+          <figcaption>Iterative refinement improves the agent steadily. Around the general X-VLA (left), each kept revision raises the mean training-pool score, and the final agent lifts the held-out mean from 1.9% to 28.8%. Around the X-VLA specialists (right), it keeps their scores and adds a little. The first row is the mean over the benchmarks.</figcaption></figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="routines">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Auto-evolved control routines</h2>
+      <p>RoboArchitect automatically designs diverse control routines, each fixing a concrete failure pattern. Every revision targets failures found in the recorded rollouts, so each routine is grounded in actual evidence from observation. <strong>Without any instruction on how to divide the work, most agents converge on a dynamic split between the VLA policy and code-as-policy</strong>: the VLA policy keeps the motions it executes well (<a class="hl" href="#clip-door">c</a>), and the code takes over only where the policy fails (<a class="hl" href="#clip-jam">a</a>, <a class="hl" href="#clip-handles">e</a>, <a class="hl" href="#clip-tether">f</a>), often handing control back once the failure is fixed (<a class="hl" href="#clip-named">d</a>). Where the VLA policy is unusable, the code replaces it entirely (<a class="hl" href="#clip-shelf">b</a>, <a class="hl" href="#clip-ranked">g</a>, <a class="hl" href="#clip-depth">h</a>, <a class="hl" href="#clip-takeover">i</a>).</p>
+    </div>
+    <div class="gallery">
+      <article class="clip" id="clip-jam">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_jam.jpg" aria-label="Before and after: clearing an arm jam"><source src="assets/videos/routine_jam.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(a)</span><h3>Detecting and clearing arm jams to avoid tipping objects over</h3></span>
+            <span class="setting">MolmoAct-2 &middot; LIBERO-Pro-10</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;put both the cream cheese box and the butter in the basket&rdquo;</p>
+            <p>The VLA policy keeps driving into the juice carton until it tips over: during a jam its camera view barely changes, so it keeps issuing similar commands. The evolved agent compares the commanded and the actual gripper motion, and when they keep disagreeing, it <strong>takes over and lifts the arm clear</strong> before asking the policy model again.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-shelf">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_shelf.jpg" aria-label="Before and after: reaching a book from the side"><source src="assets/videos/routine_shelf.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(b)</span><h3>Adding a missing motion: reaching in from the side</h3></span>
+            <span class="setting">X-VLA &middot; VLABench</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;Please take the book contract_law_in_japan&rdquo;</p>
+            <p>Earlier, the agent always approaches from above and hits the shelf board over the book. The evolved agent finds the board in the depth image, turns the wrist flat, and reaches in horizontally beneath it.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-door">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_door.jpg" aria-label="Before and after: closing the toaster oven door"><source src="assets/videos/routine_door.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(c)</span><h3>Rescaling contact force</h3></span>
+            <span class="setting">RLDX-1 &middot; RoboCasa-365</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;Close the toaster oven door.&rdquo;</p>
+            <p>The VLA policy pushes the door too gently. The evolved agent dynamically scales up the policy&rsquo;s motion while keeping its direction, and the door latches shut.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-named">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_named.jpg" aria-label="Before and after: going to the moka pot"><source src="assets/videos/routine_named.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(d)</span><h3>Going to the named object, not a memorized place</h3></span>
+            <span class="setting">RLinf-&pi;<sub>0.5</sub> &middot; LIBERO-Pro-10</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;turn on the stove and put the moka pot on it&rdquo;</p>
+            <p>LIBERO-Pro swaps object positions. The VLA policy closes its gripper on the frying pan, which now stands at the moka pot&rsquo;s position memorized from its training scenes. RoboArchitect diagnosed this memorization on its own: the evolved agent <strong>takes over</strong>, asks the pointing model for the moka pot, carries the gripper there, and then <strong>hands control back to the VLA policy</strong>.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-handles">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_handles.jpg" aria-label="Before and after: opening a drawer by its handle"><source src="assets/videos/routine_handles.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(e)</span><h3>Adding a missing motion: pulling a handle</h3></span>
+            <span class="setting">SmolVLA &middot; RoboCerebra</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;Open the wooden cabinet top region&rdquo;</p>
+            <p>The VLA policy never goes near the cabinet. The evolved agent <strong>takes over by synthesizing the complete motion control chain</strong>: it asks the pointing model for the cabinet, finds its handles in the depth image, closes on the top handle, and pulls the drawer straight out.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-tether">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_tether.jpg" aria-label="Before and after: keeping the mobile base near the work"><source src="assets/videos/routine_tether.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(f)</span><h3>Keeping the mobile base near the work</h3></span>
+            <span class="setting">RLDX-1 &middot; RoboCasa-365</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;Open the cabinet, pick up the bread from the cabinet and place it in the basket. Then move the basket to the dining counter.&rdquo;</p>
+            <p>The VLA policy often drives the base away from the counter and does not come back. The evolved agent marks where the gripper last worked, and drives back to that place once the base has driven too long.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-ranked">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_ranked.jpg" aria-label="Before and after: working down a ranked list of mahjong tiles"><source src="assets/videos/routine_ranked.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(g)</span><h3>Working down ranked candidates</h3></span>
+            <span class="setting">X-VLA &middot; VLABench</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;Pick up the mahjong of 1 pin&rdquo;</p>
+            <p>This agent no longer calls the policy, and its vision tools cannot reliably tell the tile faces apart. The earlier agent commits to a single tile. The evolved agent keeps a ranked list of candidate tiles and tries them in turn until the task is done.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-depth">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_depthcheck.jpg" aria-label="Before and after: checking a grasp with depth before carrying a toy to a gift box"><source src="assets/videos/routine_depthcheck.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(h)</span><h3>Checking a grasp with depth instead of vision</h3></span>
+            <span class="setting">X-VLA &middot; VLABench</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;Put the sanji into the giftbox_seen&rdquo;</p>
+            <p>The earlier agent checks its grasp by using its vision tools to find the toy again in the camera image after the lift. This check can fail, and then the toy falls. The evolved agent instead checks the depth image for a surface starting below the fingertips, so it correctly finds the toy hanging there and carries it into the gift box.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-takeover">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/routine_takeover.jpg" aria-label="Before and after: putting the spoon on the towel without the policy"><source src="assets/videos/routine_takeover.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(i)</span><h3>Replacing an unusable policy</h3></span>
+            <span class="setting">X-VLA &middot; SimplerEnv WidowX</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;put the spoon on the towel&rdquo;</p>
+            <p>The general X-VLA model was never finetuned for this benchmark. It commands a fully open gripper at every step and fails every episode. RoboArchitect decides to stop using the policy, and instead designs and writes a code-as-policy agent from scratch: it reads the instruction, detects the objects, measures them in the depth image, and drives the arm with its own code.</p>
+          </div>
+        </details>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="memory">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Auto-evolved persistent memory</h2>
+      <p>Via RoboArchitect, <strong>nearly every evolved agent builds a memory that carries experience from one episode to the next, with no predefined schema given</strong>. The memories hold reusable execution experience (<a class="hl" href="#clip-grasp">a</a>, <a class="hl" href="#clip-grip">b</a>), task and environment clues (<a class="hl" href="#clip-clues">c</a>), and <a class="hl" href="#clip-calib">calibration to the robot</a>, and are frequently accessed to inform the robot&rsquo;s control decisions. Note that these memories are part of the auto-designed agents, not of the coding model&rsquo;s context.</p>
+    </div>
+
+    <h3 class="block-label">Memories in held-out episodes</h3>
+    <div class="gallery">
+      <article class="clip" id="clip-grasp">
+        <div class="plate"><div class="player"><video width="626" height="272" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/memory_grasp_height.jpg" aria-label="Grasp heights stored in memory, on a carrot and an eggplant"><source src="assets/videos/memory_grasp_height.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(a)</span><h3>Learning grasp heights from its own lifts</h3></span>
+            <span class="setting">X-VLA &middot; SimplerEnv WidowX</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;put carrot on plate&rdquo; and &ldquo;put eggplant into yellow basket&rdquo;</p>
+            <p>The memory records which fractions of an object&rsquo;s measured height led to a lift, grouped by object height. Closing at 18% of the carrot&rsquo;s height (raised to a 0.8&nbsp;cm minimum) lifts nothing. Closing at 45% lifts the carrot (1.4&nbsp;cm), and the same fraction lifts the eggplant (3.9&nbsp;cm).</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-grip">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/memory_grip_style.jpg" aria-label="Grip styles stored in memory, on a mug and a pudding box"><source src="assets/videos/memory_grip_style.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(b)</span><h3>Remembering the grip style for each object</h3></span>
+            <span class="setting">OpenVLA-7B &middot; LIBERO-Pro-10</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;put the white mug on the plate and put the chocolate pudding to the right of the plate&rdquo;</p>
+            <p>The memory counts how often each grip style, pinch or spread, has worked for each object, and later grasps choose the proven one when the object&rsquo;s shape allows both. The white mug is spread from the inside and stays upright; the pudding box is pinched.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-clues">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/memory_task_clues.jpg" aria-label="Instruction clues stored in memory: pressing a kettle lever and picking a pepper"><source src="assets/videos/memory_task_clues.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="clip-head"><span class="tag">(c)</span><h3>Learning which instructions need a grip</h3></span>
+            <span class="setting">RLDX-1 &middot; RoboCasa-365, wrist camera</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;Press down the lever to turn on the electric kettle.&rdquo; and &ldquo;Pick the bell pepper from the plate and place it in the pan.&rdquo;</p>
+            <p>The memory links the verb an instruction opens with to whether the hand must hold something. For the pressing task, the agent keeps pressing the lever with closed, empty fingers, as intended. For the picking task, the fingers first close on nothing, so the agent backs off, retries and carries the pepper to the pan.</p>
+          </div>
+        </details>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="unified">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Unified harness</h2>
+      <p><strong>A single harness for several robots is evolved on a &ldquo;training pool&rdquo; of procedurally generated episodes from different embodiments and benchmarks</strong> (LIBERO-Pro, VLABench, SimplerEnv WidowX and SimplerEnv Google), and evaluated on held-out benchmark scenes and tasks. Around the general, unfinetuned X-VLA policy, the unified harness evolves into a competent code-as-policy agent and drives the arm with its own code (<a class="hl" href="#clip-front">b</a>). Around the X-VLA specialists finetuned on each benchmark, it keeps the already capable policy in charge, and takes over with its own code only when needed to fix a failure pattern (<a class="hl" href="#clip-late">a</a>).</p>
+    </div>
+
+    <div class="table-block">
+      <div class="table-wrap">
+        <table class="unified-table">
+          <thead>
+            <tr>
+              <th class="l" colspan="3"></th>
+              <th class="group split" colspan="4">Training pool (%)</th>
+              <th class="group split" colspan="4">Held-out (%)</th>
+            </tr>
+            <tr>
+              <th class="l">Policy</th><th class="l">Trained on</th><th class="l">Benchmark</th>
+              <th class="split">VLA policy</th><th>One-shot</th><th>Iterative</th><th>&Delta;</th>
+              <th class="split">VLA policy</th><th>One-shot</th><th>Iterative</th><th>&Delta;</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="l">General X-VLA</td><td class="l src off">general robot data</td><td class="l bench libero">LIBERO-Pro</td><td class="split">0.0</td><td>3.5</td><td class="best">29.4</td><td class="gain">+29.4</td><td class="split">0.1</td><td>3.5</td><td class="best">24.1</td><td class="gain">+24.0</td></tr>
+            <tr><td class="l"></td><td class="l"></td><td class="l bench vlab">VLABench</td><td class="split">7.1</td><td>14.8</td><td class="best">17.5</td><td class="gain">+10.4</td><td class="split">7.5</td><td>17.3</td><td class="best">21.6</td><td class="gain">+14.2</td></tr>
+            <tr><td class="l"></td><td class="l"></td><td class="l bench widowx">SimplerEnv WidowX</td><td class="split">0.0</td><td>65.8</td><td class="best">68.3</td><td class="gain">+68.3</td><td class="split">0.0</td><td>45.8</td><td class="best">24.0</td><td class="gain">+24.0</td></tr>
+            <tr><td class="l"></td><td class="l"></td><td class="l bench google">SimplerEnv Google</td><td class="split">0.0</td><td>22.0</td><td class="best">51.2</td><td class="gain">+51.2</td><td class="split">0.0</td><td>20.0</td><td class="best">45.6</td><td class="gain">+45.6</td></tr>
+            <tr class="mean"><td class="l"></td><td class="l"></td><td class="l">Mean over all benchmarks</td><td class="split">1.8</td><td>26.5</td><td class="best">41.6</td><td class="gain">+2228%</td><td class="split">1.9</td><td>21.6</td><td class="best">28.8</td><td class="gain">+1417%</td></tr>
+            <tr class="start"><td class="l">Specialist X-VLA</td><td class="l src">its own benchmark</td><td class="l bench libero">LIBERO-Pro</td><td class="split">82.9</td><td>83.2</td><td class="best">82.8</td><td class="loss">&minus;0.1</td><td class="split">8.4</td><td>8.1</td><td class="best">8.0</td><td class="loss">&minus;0.4</td></tr>
+            <tr><td class="l"></td><td class="l"></td><td class="l bench vlab">VLABench</td><td class="split">13.4</td><td>14.9</td><td class="best">23.6</td><td class="gain">+10.2</td><td class="split">30.4</td><td>33.5</td><td class="best">35.1</td><td class="gain">+4.7</td></tr>
+            <tr><td class="l"></td><td class="l"></td><td class="l bench widowx">SimplerEnv WidowX</td><td class="split">80.0</td><td>80.0</td><td class="best">80.8</td><td class="gain">+0.8</td><td class="split">72.9</td><td>72.9</td><td class="best">74.0</td><td class="gain">+1.0</td></tr>
+            <tr><td class="l"></td><td class="l"></td><td class="l bench google">SimplerEnv Google</td><td class="split">55.9</td><td>55.9</td><td class="best">55.4</td><td class="loss">&minus;0.4</td><td class="split">71.9</td><td>71.7</td><td class="best">70.9</td><td class="loss">&minus;1.0</td></tr>
+            <tr class="mean"><td class="l"></td><td class="l"></td><td class="l">Mean over all benchmarks</td><td class="split">58.0</td><td>58.5</td><td class="best">60.7</td><td class="gain">+5%</td><td class="split">45.9</td><td>46.5</td><td class="best">47.0</td><td class="gain">+2%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="key">
+        <span><b>Training pool</b> procedurally generated scenes, objects, instructions and tasks</span>
+        <span><b>Held-out</b> each benchmark&rsquo;s standard episodes</span>
+        <span><b>One-shot</b> the agent after iteration 1</span>
+        <span><b>Iterative</b> after up to 5 iterations</span>
+        <span><b>&Delta;</b> Iterative minus VLA policy (relative gain in the mean rows)</span>
+        <span><b>VLABench</b> numbers are the benchmark&rsquo;s official progress score</span>
+      </div>
+      <div class="key colors" aria-label="Colour key for the Trained on column">
+        <span class="k-in">finetuned on this benchmark</span>
+        <span class="k-off">general robot data only</span>
+      </div>
+    </div>
+
+    <div class="gallery">
+      <article class="clip" id="clip-late">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/unified_late.jpg" aria-label="Before and after: the agent steps in late to put the cup in the caddy, then hands control back"><source src="assets/videos/unified_late.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="kind">Control routine</span>
+            <span class="clip-head"><span class="tag">(a)</span><h3>Stepping in only when the policy fails</h3></span>
+            <span class="setting">X-VLA finetuned on LIBERO &middot; LIBERO-Pro</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;pick up the cup and place it in the back compartment of the caddy&rdquo;</p>
+            <p>LIBERO-Pro changes the task, but the finetuned policy carries out the one it memorized: it puts the book in the caddy and leaves the cup on the table. The evolved agent leaves the policy in control for most of the episode. Only after three quarters of the episode length stored in its memory, with the gripper still far from the cup, does it <strong>take over</strong>: it finds the cup with the pointing model, grasps it, places it in the back compartment, and <strong>hands control back to the VLA policy</strong>.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-front">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/unified_front.jpg" aria-label="Before and after: ending moves on arrival on the slower Google robot"><source src="assets/videos/unified_front.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="kind">Control routine</span>
+            <span class="clip-head"><span class="tag">(b)</span><h3>Adapting to a slower robot</h3></span>
+            <span class="setting">X-VLA (general) &middot; SimplerEnv Google</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;open bottom drawer&rdquo;</p>
+            <p>The earlier agent ends each move on a clock set for a faster robot, and on the 3&nbsp;Hz Google robot it runs out of time while pressing the hand onto the drawer front. The evolved agent ends a move when the arm actually arrives or stops making progress, and reaches the handle from the front along the measured surface normal.</p>
+          </div>
+        </details>
+      </article>
+      <article class="clip" id="clip-calib">
+        <div class="plate"><div class="player"><video width="626" height="350" muted loop playsinline controls preload="none" data-autoplay poster="assets/videos/memory_calibration.jpg" aria-label="Finger-direction calibration stored in memory, on the Google robot and the Franka arm"><source src="assets/videos/memory_calibration.mp4" type="video/mp4"></video></div></div>
+        <details class="clip-text">
+          <summary>
+            <span class="kind memory">Persistent memory</span>
+            <span class="clip-head"><span class="tag">(c)</span><h3>Calibrating itself to each robot</h3></span>
+            <span class="setting">X-VLA (general) &middot; SimplerEnv Google and LIBERO-Pro</span>
+            <span class="more"><span class="chev" aria-hidden="true"></span></span>
+          </summary>
+          <div class="clip-body">
+            <p class="instruction">&ldquo;pick coke can&rdquo; and &ldquo;Pick the akita black bowl on the cookie box and place it on the plate&rdquo;</p>
+            <p>Finger motion differs between robots. Once per robot, the agent opens and closes the empty gripper and stores which way the fingers close. This memory guides later grasps to turn the wrist to match. The Google robot closes its fingers across the can, and the Franka arm grips the bowl&rsquo;s rim with one finger inside and one outside.</p>
+          </div>
+        </details>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="cite">
+  <div class="wrap">
+    <h2>Citation</h2>
+    <div class="cite">
+<pre id="bibtex"><code>@article{wu2026roboarchitect,
+  title   = {RoboArchitect: Automating the Design of Robotic Agents with Persistent Memory},
+  author  = {Wu, Shengguang and Huang, Suning and Ho, Cherie and Doshi, Ria and Zhu, Hao and Yeung-Levy, Serena},
+  journal = {arXiv preprint arXiv:2610.42141},
+  year    = {2026}
+}</code></pre>
+      <button type="button" class="copy" id="copy-bibtex">Copy</button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>RoboArchitect: Automating the Design of Robotic Agents with Persistent Memory</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var playIcon = '<svg class="icon-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor"/></svg>';
+  var pauseIcon = '<svg class="icon-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z" fill="currentColor"/></svg>';
+
+  var nativeControls = window.matchMedia && window.matchMedia("(max-width: 640px), (pointer: coarse)").matches;
+  var players = Array.prototype.slice.call(document.querySelectorAll(".player"));
+  players.forEach(function (player) {
+    var video = player.querySelector("video");
+    video.addEventListener("play", function () { video.dataset.userPaused = ""; });
+    video.addEventListener("pause", function () {
+      video.dataset.userPaused = video.dataset.autoPausing === "1" ? "" : "1";
+      video.dataset.autoPausing = "";
+    });
+    if (nativeControls) { return; }
+    video.removeAttribute("controls");
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "toggle";
+    button.innerHTML = playIcon + pauseIcon;
+    button.setAttribute("aria-label", "Play video");
+    player.appendChild(button);
+    function sync() {
+      var playing = !video.paused;
+      player.classList.toggle("is-playing", playing);
+      button.setAttribute("aria-label", playing ? "Pause video" : "Play video");
+    }
+    function toggle() {
+      if (video.paused) {
+        var started = video.play();
+        if (started && started.catch) { started.catch(function () {}); }
+      } else {
+        video.pause();
+      }
+    }
+    button.addEventListener("click", toggle);
+    video.addEventListener("click", toggle);
+    video.addEventListener("play", sync);
+    video.addEventListener("pause", sync);
+  });
+
+  if (!reduce && "IntersectionObserver" in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var video = entry.target;
+        if (entry.isIntersecting) {
+          if (video.dataset.userPaused !== "1") {
+            var started = video.play();
+            if (started && started.catch) { started.catch(function () {}); }
+          }
+        } else if (!video.paused) {
+          video.dataset.autoPausing = "1";
+          video.pause();
+        }
+      });
+    }, { threshold: 0.35 });
+    players.forEach(function (player) { observer.observe(player.querySelector("video")); });
+  }
+
+  Array.prototype.slice.call(document.querySelectorAll("[data-group]")).forEach(function (group) {
+    var buttons = Array.prototype.slice.call(group.querySelectorAll("button[aria-controls]"));
+    buttons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        var open = button.getAttribute("aria-expanded") !== "true";
+        buttons.forEach(function (other) {
+          var on = other === button && open;
+          other.setAttribute("aria-expanded", on ? "true" : "false");
+          document.getElementById(other.getAttribute("aria-controls")).hidden = !on;
+        });
+      });
+    });
+  });
+
+  var copy = document.getElementById("copy-bibtex");
+  var source = document.getElementById("bibtex");
+  if (copy && source) {
+    copy.addEventListener("click", function () {
+      var text = source.innerText;
+      function done(label) {
+        copy.textContent = label;
+        setTimeout(function () { copy.textContent = "Copy"; }, 1600);
+      }
+      function fallback() {
+        var range = document.createRange();
+        range.selectNodeContents(source);
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        done("Selected");
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done("Copied"); }, fallback);
+      } else {
+        fallback();
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>
